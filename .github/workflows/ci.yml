@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# App performs no network requests and needs no secrets to build.
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: "3.47.7"
+
+jobs:
+  windows:
+    name: Windows test + release build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2.23.0
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: Pub get
+        run: flutter pub get
+      - name: Verify formatting
+        run: dart format --output=none --set-exit-if-changed .
+      - name: Analyze
+        run: flutter analyze
+      - name: Test
+        run: flutter test
+      - name: Build Windows release
+        run: flutter build windows --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-release-build
+          path: build/windows/x64/runner/Release/
+
+  android:
+    name: Android test + debug APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2.23.0
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: Pub get
+        run: flutter pub get
+      - name: Test
+        run: flutter test
+      - name: Build debug APK
+        run: flutter build apk --debug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
