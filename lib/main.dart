@@ -89,8 +89,9 @@ class AdaptiveShell extends StatelessWidget {
     final desktop =
         platform == TargetPlatform.windows || platform == TargetPlatform.linux;
     // Desktop pointer input wants compact density; touch keeps the default.
-    final theme = Theme.of(context)
-        .copyWith(visualDensity: desktop ? VisualDensity.compact : null);
+    final theme = Theme.of(
+      context,
+    ).copyWith(visualDensity: desktop ? VisualDensity.compact : null);
     return Theme(
       data: theme,
       child: Scaffold(
