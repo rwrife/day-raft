@@ -2,6 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'data/backup_screen.dart';
+
 void main() {
   runApp(const DayRaftApp());
 }
@@ -44,7 +46,7 @@ class HomeScreen extends StatelessWidget {
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 720),
-          child: const Column(
+          child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
@@ -53,11 +55,29 @@ class HomeScreen extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
               SizedBox(height: 16),
-              Text(
+              const Text(
                 'Travel times are user-entered planning estimates, not live '
                 'traffic, transit, or routing data.',
                 textAlign: TextAlign.center,
               ),
+              const SizedBox(height: 16),
+              defaultTargetPlatform == TargetPlatform.iOS
+                  ? CupertinoButton(
+                      onPressed: () => Navigator.of(context).push(
+                        CupertinoPageRoute<void>(
+                          builder: (_) => const BackupScreen(),
+                        ),
+                      ),
+                      child: const Text('Local backups'),
+                    )
+                  : FilledButton(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const BackupScreen(),
+                        ),
+                      ),
+                      child: const Text('Local backups'),
+                    ),
             ],
           ),
         ),
