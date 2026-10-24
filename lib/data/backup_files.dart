@@ -1,19 +1,44 @@
 import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
+import 'package:share_plus/share_plus.dart';
 
 import 'trip_store.dart';
 
-const backupType = XTypeGroup(label: 'Day Raft JSON', extensions: ['json']);
+const backupType = XTypeGroup(
+  label: 'Day Raft JSON',
+  extensions: ['json'],
+  uniformTypeIdentifiers: ['public.json'],
+);
 
-/// User chooses destination. Never overwrite an existing file silently.
-Future<String?> exportBackup(TripStore store) async {
+/// Desktop: user chooses a destination; mobile: the OS share sheet offers
+/// Save to Files. No network call is made by this app.
+Future<void> exportBackup(TripStore store, {required bool mobile}) async {
+  final snapshot = await store.snapshot();
+  if (mobile) {
+    await shareBackupText(snapshot.exportJson());
+    return;
+  }
   final target = await getSaveLocation(
     suggestedName: 'day-raft-backup.json',
     acceptedTypeGroups: [backupType],
   );
-  if (target == null) return null;
-  return writeBackup(target.path, await store.snapshot());
+  if (target == null) return;
+  await writeBackup(target.path, snapshot);
+}
+
+Future<void> shareBackupText(String backupJson) async {
+  final dir = await Directory.systemTemp.createTemp('day-raft-backup-');
+  final file = File('${dir.path}${Platform.pathSeparator}day-raft-backup.json');
+  try {
+    await file.writeAsString(backupJson, flush: true);
+    await SharePlus.instance.share(
+      ShareParams(files: [XFile(file.path, mimeType: 'application/json')]),
+    );
+  } finally {
+    if (await file.exists()) await file.delete();
+    if (await dir.exists()) await dir.delete(recursive: true);
+  }
 }
 
 /// Exclusive create so a file selected in the save dialog is never clobbered.
@@ -35,7 +60,7 @@ Future<String> writeBackup(String path, TripSnapshot snapshot) async {
 Future<TripSnapshot?> pickBackup() async {
   final file = await openFile(acceptedTypeGroups: [backupType]);
   if (file == null) return null;
-  if (await file.length() > 10 * 1024 * 1024) {
+  if (await file.length() > TripSnapshot.maxBytes) {
     throw const FormatException('Backup exceeds 10 MB');
   }
   return TripSnapshot.parse(await file.readAsString());

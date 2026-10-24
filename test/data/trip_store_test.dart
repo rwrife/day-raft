@@ -90,6 +90,33 @@ void main() {
     expect((await store.snapshot()).places, isEmpty);
   });
 
+  test('mutations keep every permitted state exportable', () async {
+    final path = '${tempDir.path}${Platform.pathSeparator}small.db';
+    final small = await TripStore.openAt(
+      databaseFactoryFfi,
+      path,
+      maxEntries: 2,
+    );
+    await small.savePlace('p1', 'One');
+    await small.savePlace('p2', 'Two');
+    await expectLater(small.savePlace('p3', 'Three'), throwsFormatException);
+    expect((await small.snapshot()).places.length, 2);
+
+    // Replace import at cap succeeds and replaces everything.
+    await small.import(TripSnapshot({}, {'p9': 'Nine'}), replace: true);
+    expect((await small.snapshot()).places, {'p9': 'Nine'});
+    // Replace import beyond cap aborts before deleting anything.
+    await expectLater(
+      small.import(
+        TripSnapshot({}, {'a': 'A', 'b': 'B', 'c': 'C'}),
+        replace: true,
+      ),
+      throwsFormatException,
+    );
+    expect((await small.snapshot()).places, {'p9': 'Nine'});
+    await small.close();
+  });
+
   test('wipe removes both trips and places atomically', () async {
     await store.saveTrip('t1', sampleTrip());
     await store.savePlace('p1', 'Library');
@@ -121,8 +148,12 @@ void main() {
     );
     expect(await file.readAsString(), 'existing');
     await file.delete();
-    await writeBackup(path, TripSnapshot({}, {'p': 'Place'}));
-    expect(TripSnapshot.parse(await file.readAsString()).places['p'], 'Place');
+    final snapshot = TripSnapshot({'t': sampleTrip()}, {'p': 'Place'});
+    await writeBackup(path, snapshot);
+    expect(
+      TripSnapshot.parse(await file.readAsString()).exportJson(),
+      snapshot.exportJson(),
+    );
   });
 
   test('JSON backup roundtrips exact contents', () async {
@@ -243,30 +274,29 @@ void main() {
     await again.close();
   });
 
-  test('schema v1 migration rejects unhandled future versions', () async {
-    final customDbPath = '${tempDir.path}${Platform.pathSeparator}future.db';
-    // Create db with version 2
-    final futureDb = await databaseFactoryFfi.openDatabase(
-      customDbPath,
-      options: OpenDatabaseOptions(
-        version: 2,
-        onCreate: (db, version) async {},
-      ),
+  test('schema v1 refuses to open a database from a newer schema', () async {
+    final path = '${tempDir.path}${Platform.pathSeparator}future.db';
+    final newer = await TripStore.openAt(
+      databaseFactoryFfi,
+      path,
+      version: 2,
+      steps: {2: (db) => db.execute('ALTER TABLE places ADD COLUMN note TEXT')},
     );
-    await futureDb.close();
+    await newer.savePlace('p1', 'Kept');
+    await newer.close();
 
-    // Opening it with schemaVersion 1 should fail downgrade
-    expect(
-      () => databaseFactoryFfi.openDatabase(
-        customDbPath,
-        options: OpenDatabaseOptions(
-          version: 1,
-          onDowngrade: (db, oldVersion, newVersion) => throw StateError(
-            'Cannot downgrade from $oldVersion to $newVersion',
-          ),
-        ),
-      ),
+    // Production open (schema v1) must abort instead of downgrading or wiping.
+    await expectLater(
+      TripStore.openAt(databaseFactoryFfi, path),
       throwsStateError,
     );
+    final data = await TripStore.openAt(
+      databaseFactoryFfi,
+      path,
+      version: 2,
+      steps: {2: (db) => db.execute('ALTER TABLE places ADD COLUMN note TEXT')},
+    );
+    expect((await data.snapshot()).places['p1'], 'Kept');
+    await data.close();
   });
 }

@@ -10,9 +10,13 @@ import 'package:flutter/foundation.dart';
 /// One SQLite transaction replaces a complete validated snapshot. The domain
 /// has no trip IDs yet; IDs here remain stable across exports and imports.
 class TripStore {
-  TripStore(this.db);
+  TripStore(this.db, {this.maxEntries = TripSnapshot.maxEntries});
   final Database db;
   static const schemaVersion = 1;
+
+  /// Per-collection cap shared by import, mutation and export so any stored
+  /// state is guaranteed to have a parseable export. Lowerable in tests.
+  final int maxEntries;
 
   static Future<TripStore> open() async {
     final dir = await getApplicationDocumentsDirectory();
@@ -36,6 +40,7 @@ class TripStore {
     String path, {
     int version = schemaVersion,
     Map<int, Future<void> Function(Database)> steps = migrations,
+    int maxEntries = TripSnapshot.maxEntries,
   }) async {
     return TripStore(
       await factory.openDatabase(
@@ -63,23 +68,30 @@ class TripStore {
               throw StateError('Database is newer ($from) than app ($to)'),
         ),
       ),
+      maxEntries: maxEntries,
     );
   }
 
   Future<void> close() => db.close();
 
-  Future<TripSnapshot> snapshot() async {
+  Future<TripSnapshot> snapshot() => db.transaction(_snapshot);
+
+  Future<TripSnapshot> _snapshot(DatabaseExecutor executor) async {
     final trips = <String, Trip>{};
-    for (final row in await db.query('trips')) {
+    for (final row in await executor.query('trips')) {
       trips[row['id']! as String] = decodeTrip(
         jsonDecode(row['payload']! as String),
       );
     }
     final places = <String, String>{};
-    for (final row in await db.query('places')) {
+    for (final row in await executor.query('places')) {
       places[row['id']! as String] = row['name']! as String;
     }
     return TripSnapshot(trips, places);
+  }
+
+  Future<void> _assertExportable(DatabaseExecutor txn) async {
+    (await _snapshot(txn)).exportJson(maxEntries: maxEntries);
   }
 
   Future<void> saveTrip(String id, Trip trip) async {
@@ -91,6 +103,7 @@ class TripStore {
         'id': id,
         'payload': jsonEncode(encodeTrip(trip)),
       }, conflictAlgorithm: ConflictAlgorithm.replace);
+      await _assertExportable(txn);
     });
   }
 
@@ -108,6 +121,7 @@ class TripStore {
         'id': id,
         'name': name,
       }, conflictAlgorithm: ConflictAlgorithm.replace);
+      await _assertExportable(txn);
     });
   }
 
@@ -128,6 +142,10 @@ class TripStore {
     // Merge keeps local entries on ID collision; never silently overwrites.
     await db.transaction((txn) async {
       if (replace) {
+        if (incoming.trips.length > maxEntries ||
+            incoming.places.length > maxEntries) {
+          throw const FormatException('Import exceeds entry limit');
+        }
         await txn.delete('trips');
         await txn.delete('places');
       }
@@ -149,6 +167,7 @@ class TripStore {
               : ConflictAlgorithm.ignore,
         );
       }
+      await _assertExportable(txn);
     });
   }
 }
@@ -171,11 +190,25 @@ class TripSnapshot {
   final Map<String, Trip> trips;
   final Map<String, String> places;
 
-  String exportJson() => jsonEncode({
-    'schemaVersion': TripStore.schemaVersion,
-    'trips': {for (final e in trips.entries) e.key: encodeTrip(e.value)},
-    'places': places,
-  });
+  static const maxEntries = 10000;
+  static const maxBytes = 10 * 1024 * 1024;
+
+  /// Export refuses a payload that [parse] callers (10 MB picker limit) could
+  /// not restore, so a backup is never silently unrestorable.
+  String exportJson({int maxEntries = TripSnapshot.maxEntries}) {
+    if (trips.length > maxEntries || places.length > maxEntries) {
+      throw const FormatException('Backup exceeds entry limit');
+    }
+    final json = jsonEncode({
+      'schemaVersion': TripStore.schemaVersion,
+      'trips': {for (final e in trips.entries) e.key: encodeTrip(e.value)},
+      'places': places,
+    });
+    if (utf8.encode(json).length > maxBytes) {
+      throw const FormatException('Backup exceeds 10 MB; delete entries first');
+    }
+    return json;
+  }
 
   static TripSnapshot parse(String text) {
     final value = jsonDecode(text);
@@ -185,7 +218,7 @@ class TripSnapshot {
     }
     final rawTrips = _object(root['trips']);
     final rawPlaces = _object(root['places']);
-    if (rawTrips.length > 10000 || rawPlaces.length > 10000) {
+    if (rawTrips.length > maxEntries || rawPlaces.length > maxEntries) {
       throw const FormatException('Backup exceeds entry limit');
     }
     return TripSnapshot(

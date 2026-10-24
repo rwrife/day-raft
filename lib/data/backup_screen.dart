@@ -42,6 +42,9 @@ class _BackupScreenState extends State<BackupScreen> {
   }
 
   bool get ios => defaultTargetPlatform == TargetPlatform.iOS;
+  bool get mobile =>
+      defaultTargetPlatform == TargetPlatform.iOS ||
+      defaultTargetPlatform == TargetPlatform.android;
 
   Future<bool?> _ask(String title, String details, {String yes = 'Continue'}) {
     if (ios) {
@@ -199,7 +202,7 @@ class _BackupScreenState extends State<BackupScreen> {
               _button(
                 'Export JSON backup',
                 () => _run(() async {
-                  await exportBackup(store!);
+                  await exportBackup(store!, mobile: mobile);
                 }),
               ),
               _button('Import JSON backup', () => _run(_import)),
