@@ -37,10 +37,14 @@ class Stop {
     this.anchor,
     this.opening,
     this.notes = '',
+    this.roughCost = 0,
   });
 
   final String name;
   final int dwellMinutes;
+
+  /// User-entered rough cost in whole currency units, no exchange conversion.
+  final int roughCost;
 
   /// User-entered travel from previous position to this stop; null means zero.
   final Leg? leg;
@@ -52,7 +56,13 @@ class Stop {
 }
 
 class Trip {
-  const Trip({required this.start, required this.end, required this.stops});
+  const Trip({
+    required this.start,
+    required this.end,
+    required this.stops,
+    this.title = '',
+  });
+  final String title;
   final DateTime start;
   final DateTime end;
   final List<Stop> stops;
@@ -111,9 +121,10 @@ class ScheduleEngine {
       final stop = trip.stops[i];
       if (stop.name.trim().isEmpty ||
           stop.dwellMinutes <= 0 ||
+          stop.roughCost < 0 ||
           (stop.leg != null && stop.leg!.minutes < 0)) {
         throw ArgumentError(
-          'Stop needs a name, positive dwell and nonnegative leg',
+          'Stop needs a name, positive dwell, nonnegative leg and cost',
         );
       }
       final opening = stop.opening;

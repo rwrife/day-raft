@@ -1,5 +1,5 @@
-Day Raft helps plan one day out without an account or connection. Put stops in order, enter rough travel and visit times, and see whether the day fits between a start and end time. Keep the plan on your phone, tablet, or Windows desktop.
+Day Raft helps plan one day out without an account or connection. Put stops in order, enter rough travel and visit times, and save the plan on your phone, tablet, or Windows desktop. A schedule and overrun view is still in development.
 
-Planned features: stops and travel legs, fixed-time anchors, simple opening-hour notes, day-of actual times, an alternative plan view, and JSON backup. Travel estimates are entered by you, not calculated from traffic or transit services. No location tracking, map integration, accounts, ads, or analytics.
+Available features: create, edit, delete, and reorder ordered trips and stops; enter rough travel minutes, dwell, notes, rough cost, opening-hour notes, and fixed anchors; save locally and export/import JSON. Travel and opening-hour details are entered by you, not calculated from traffic or transit services. No location tracking, map integration, accounts, ads, or analytics.
 
-Day Raft is under development. Current repository contains an app skeleton; trip planning and data export are not yet available.
+Day Raft is under development. Timeline/overrun views, day-of actuals, saved places, and plan comparison are planned and not yet available.

@@ -2,7 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import 'data/backup_screen.dart';
+import 'trip_screen.dart';
+export 'trip_screen.dart' show TripScreen;
 
 void main() {
   runApp(const DayRaftApp());
@@ -15,82 +16,29 @@ void main() {
 /// compact desktop layout on Windows. Fluent widgets land with the release
 /// issue; until then, avoid using one phone look on every platform.
 class DayRaftApp extends StatelessWidget {
-  const DayRaftApp({super.key});
+  const DayRaftApp({super.key, this.home});
+  final Widget? home;
 
   @override
   Widget build(BuildContext context) {
+    final root = home ?? const TripScreen();
     if (defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS) {
-      return const CupertinoApp(
+      return CupertinoApp(
         title: 'Day Raft',
         debugShowCheckedModeBanner: false,
-        home: HomeScreen(),
+        home: root,
       );
     }
     return MaterialApp(
       title: 'Day Raft',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(useMaterial3: true),
-      home: const HomeScreen(),
+      home: root,
     );
   }
 }
 
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return AdaptiveShell(
-      title: 'Day Raft',
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 720),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'Lay out stops, travel legs, and time budgets. '
-                'See whether the day fits before you leave.',
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: 16),
-              const Text(
-                'Travel times are user-entered planning estimates, not live '
-                'traffic, transit, or routing data.',
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              defaultTargetPlatform == TargetPlatform.iOS
-                  ? CupertinoButton(
-                      onPressed: () => Navigator.of(context).push(
-                        CupertinoPageRoute<void>(
-                          builder: (_) => const BackupScreen(),
-                        ),
-                      ),
-                      child: const Text('Local backups'),
-                    )
-                  : FilledButton(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const BackupScreen(),
-                        ),
-                      ),
-                      child: const Text('Local backups'),
-                    ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Platform-native application shell.
-///
-/// Screens supply [title] and [body] once; this widget decides the idiom.
-/// Keep new behavior here (dialogs, buttons, navigation) instead of
-/// scattering [defaultTargetPlatform] checks through the screens.
 class AdaptiveShell extends StatelessWidget {
   const AdaptiveShell({super.key, required this.title, required this.body});
 
