@@ -261,6 +261,7 @@ DateTime _date(Object? value) {
 }
 
 Map<String, dynamic> encodeTrip(Trip trip) => {
+  'title': trip.title,
   'start': trip.start.toIso8601String(),
   'end': trip.end.toIso8601String(),
   'stops': [
@@ -269,6 +270,7 @@ Map<String, dynamic> encodeTrip(Trip trip) => {
         'name': stop.name,
         'dwellMinutes': stop.dwellMinutes,
         'notes': stop.notes,
+        'roughCost': stop.roughCost,
         'anchor': stop.anchor?.toIso8601String(),
         'leg': stop.leg == null
             ? null
@@ -291,6 +293,7 @@ Trip decodeTrip(Object? value) {
     throw const FormatException('Invalid stops');
   }
   final trip = Trip(
+    title: root['title'] == null ? '' : _string(root['title']),
     start: _date(root['start']),
     end: _date(root['end']),
     stops: [for (final raw in rawStops) _decodeStop(_object(raw))],
@@ -321,6 +324,7 @@ Stop _decodeStop(Map<String, dynamic> row) {
     name: _string(row['name']),
     dwellMinutes: _int(row['dwellMinutes']),
     notes: _string(row['notes']),
+    roughCost: row['roughCost'] == null ? 0 : _int(row['roughCost']),
     anchor: row['anchor'] == null ? null : _date(row['anchor']),
     leg: leg == null ? null : Leg(mode: mode!, minutes: _int(leg['minutes'])),
     opening: opening == null
