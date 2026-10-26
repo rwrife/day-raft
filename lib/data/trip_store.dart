@@ -272,6 +272,13 @@ Map<String, dynamic> encodeTrip(Trip trip) => {
         'notes': stop.notes,
         'roughCost': stop.roughCost,
         'anchor': stop.anchor?.toIso8601String(),
+        'actual': stop.actual == null
+            ? null
+            : {
+                'status': stop.actual!.status.name,
+                'arrival': stop.actual!.arrival?.toIso8601String(),
+                'departure': stop.actual!.departure.toIso8601String(),
+              },
         'leg': stop.leg == null
             ? null
             : {'mode': stop.leg!.mode.name, 'minutes': stop.leg!.minutes},
@@ -308,6 +315,7 @@ Trip decodeTrip(Object? value) {
 
 Stop _decodeStop(Map<String, dynamic> row) {
   final leg = row['leg'] == null ? null : _object(row['leg']);
+  final actual = row['actual'] == null ? null : _object(row['actual']);
   final opening = row['opening'] == null ? null : _object(row['opening']);
   final days = opening?['closedWeekdays'];
   if (days != null && days is! List) {
@@ -320,12 +328,27 @@ Stop _decodeStop(Map<String, dynamic> row) {
   if (leg != null && mode == null) {
     throw const FormatException('Invalid travel mode');
   }
+  final actualStatusName = actual?['status'];
+  final actualStatus = actual == null
+      ? null
+      : StopStatus.values.where((v) => v.name == actualStatusName).firstOrNull;
+  if (actual != null && actualStatus == null) {
+    throw const FormatException('Invalid stop status');
+  }
+  final stopActual = actual == null
+      ? null
+      : StopActual(
+          status: actualStatus!,
+          arrival: actual['arrival'] == null ? null : _date(actual['arrival']),
+          departure: _date(actual['departure']),
+        );
   return Stop(
     name: _string(row['name']),
     dwellMinutes: _int(row['dwellMinutes']),
     notes: _string(row['notes']),
     roughCost: row['roughCost'] == null ? 0 : _int(row['roughCost']),
     anchor: row['anchor'] == null ? null : _date(row['anchor']),
+    actual: stopActual,
     leg: leg == null ? null : Leg(mode: mode!, minutes: _int(leg['minutes'])),
     opening: opening == null
         ? null

@@ -130,6 +130,100 @@ void main() {
     );
   });
 
+  test('day-of actual recalculates remaining day without mutating estimate', () {
+    final trip = Trip(
+      start: at(21, 9),
+      end: at(21, 13),
+      stops: [
+        Stop(
+          name: 'Breakfast',
+          dwellMinutes: 60,
+          actual: StopActual(
+            status: StopStatus.done,
+            arrival: at(21, 9, 30),
+            departure: at(21, 10, 45),
+          ),
+        ),
+        const Stop(
+          name: 'Museum',
+          dwellMinutes: 60,
+          leg: Leg(mode: TravelMode.walk, minutes: 15),
+        ),
+      ],
+    );
+    final tl = planTimeline(trip);
+    // Original estimate: 9:00 -> 10:00, 10:15 -> 11:15, ends 11:15, slack 105m.
+    expect(tl.estimate.stops[0].departure, at(21, 10));
+    expect(tl.estimate.stops[1].arrival, at(21, 10, 15));
+    expect(tl.estimate.stops[1].departure, at(21, 11, 15));
+    expect(tl.estimate.slackMinutes, 105);
+    expect(tl.estimate.verdict, Verdict.onTrack);
+
+    // Remaining with actuals: stop 1 finished 10:45. Stop 2 starts 10:45 + 15m leg = 11:00.
+    expect(tl.remaining.stops[0].departure, at(21, 10, 45));
+    expect(tl.remaining.stops[1].arrival, at(21, 11));
+    expect(tl.remaining.stops[1].departure, at(21, 12));
+    expect(tl.remaining.slackMinutes, 60);
+    expect(tl.remaining.verdict, Verdict.onTrack);
+  });
+
+  test('skipped stop uses recorded departure time with no arrival', () {
+    final trip = Trip(
+      start: at(21, 9),
+      end: at(21, 12),
+      stops: [
+        Stop(
+          name: 'Crowded cafe',
+          dwellMinutes: 45,
+          actual: StopActual(
+            status: StopStatus.skipped,
+            departure: at(21, 9, 10),
+          ),
+        ),
+        const Stop(
+          name: 'Park',
+          dwellMinutes: 60,
+          leg: Leg(mode: TravelMode.walk, minutes: 20),
+        ),
+      ],
+    );
+    final tl = planTimeline(trip);
+    expect(tl.remaining.stops[0].departure, at(21, 9, 10));
+    expect(tl.remaining.stops[1].arrival, at(21, 9, 30));
+    expect(tl.remaining.stops[1].departure, at(21, 10, 30));
+  });
+
+  test('late actual flags fixed anchor at risk or missed', () {
+    final trip = Trip(
+      start: at(21, 9),
+      end: at(21, 13),
+      stops: [
+        Stop(
+          name: 'Stop 1',
+          dwellMinutes: 30,
+          actual: StopActual(
+            status: StopStatus.late,
+            arrival: at(21, 9, 15),
+            departure: at(21, 11),
+          ),
+        ),
+        Stop(
+          name: 'Show',
+          dwellMinutes: 60,
+          anchor: at(21, 10, 30),
+          leg: const Leg(mode: TravelMode.transit, minutes: 15),
+        ),
+      ],
+    );
+    final tl = planTimeline(trip);
+    // Show was reachable in estimate (9:00 + 30m = 9:30 + 15m = 9:45 < 10:30 anchor).
+    expect(tl.estimate.conflicts, isEmpty);
+    // With late actual, arrival at show is 11:00 + 15m = 11:15 > 10:30 anchor.
+    expect(tl.remaining.conflicts.map((c) => c.kind), [
+      ConflictKind.missedAnchor,
+    ]);
+  });
+
   test('sub-minute overrun still reports one minute', () {
     final result = engine.calculate(
       Trip(

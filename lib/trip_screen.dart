@@ -253,6 +253,7 @@ class _TripScreenState extends State<TripScreen> {
                       Text(
                         '${_stamp(entry.value.start)} · ${entry.value.stops.length} stops',
                       ),
+                      _timeline(entry.value),
                       Wrap(
                         children: [
                           _button(
@@ -273,6 +274,75 @@ class _TripScreenState extends State<TripScreen> {
       ),
     ),
   );
+
+  static String _conflictLabel(Conflict conflict, bool isEstimated) {
+    if (conflict.kind == ConflictKind.missedAnchor) {
+      return isEstimated ? 'anchor at risk' : 'missed anchor';
+    }
+    return conflict.kind.name;
+  }
+
+  Widget _timeline(Trip trip) {
+    Timeline tl;
+    try {
+      tl = planTimeline(trip);
+    } catch (_) {
+      return const SizedBox.shrink();
+    }
+    final hasActuals = trip.stops.any((s) => s.actual != null);
+    final verdict = hasActuals ? tl.remaining.verdict : tl.estimate.verdict;
+    final slack = hasActuals
+        ? tl.remaining.slackMinutes
+        : tl.estimate.slackMinutes;
+    final verdictLabel = switch (verdict) {
+      Verdict.onTrack => 'On track (slack: ${slack}m)',
+      Verdict.tight => 'Tight (slack: ${slack}m)',
+      Verdict.overrun => 'Overrun (${-slack}m late)',
+    };
+    final color = switch (verdict) {
+      Verdict.onTrack => const Color(0xFF2E7D32),
+      Verdict.tight => const Color(0xFFE65100),
+      Verdict.overrun => const Color(0xFFC62828),
+    };
+    final conflicts = hasActuals
+        ? tl.remaining.conflicts
+        : tl.estimate.conflicts;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            verdictLabel,
+            key: const Key('timeline-verdict'),
+            style: TextStyle(fontWeight: FontWeight.bold, color: color),
+          ),
+          for (var i = 0; i < trip.stops.length; i++)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Text(
+                '${i + 1}. ${trip.stops[i].name} · '
+                '${hasActuals && trip.stops[i].actual != null ? '${trip.stops[i].actual!.status.name} · ' : ''}'
+                '${_stamp(tl.remaining.stops[i].arrival)} to ${_stamp(tl.remaining.stops[i].departure)} · '
+                'slack ${tl.remaining.stops[i].slackMinutes}m'
+                '${trip.stops[i].anchor == null ? '' : ' · anchor ${_stamp(trip.stops[i].anchor!)}'}'
+                '${conflicts.where((c) => c.stopIndex == i).isEmpty ? '' : ' · ${conflicts.where((c) => c.stopIndex == i).map((c) => _conflictLabel(c, trip.stops[i].actual == null)).join(', ')}'}',
+                key: Key('timeline-stop-$i'),
+              ),
+            ),
+          if (conflicts.isNotEmpty)
+            Text(
+              '${conflicts.length} conflict(s) · user-maintained opening notes and fixed anchors',
+              style: const TextStyle(color: Color(0xFFC62828)),
+            ),
+          if (hasActuals)
+            Text(
+              'Original estimate: ${tl.estimate.verdict.name} · slack ${tl.estimate.slackMinutes}m',
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class _StopDraft {
@@ -300,6 +370,15 @@ class _StopDraft {
         text: stop?.opening == null
             ? ''
             : ([...stop!.opening!.closedWeekdays]..sort()).join(','),
+      ),
+      actualStatus = stop?.actual?.status,
+      actualArrival = TextEditingController(
+        text: stop?.actual?.arrival == null
+            ? ''
+            : _stamp(stop!.actual!.arrival!),
+      ),
+      actualDeparture = TextEditingController(
+        text: stop?.actual == null ? '' : _stamp(stop!.actual!.departure),
       );
   final TextEditingController name,
       dwell,
@@ -309,8 +388,11 @@ class _StopDraft {
       anchor,
       opens,
       closes,
-      closed;
+      closed,
+      actualArrival,
+      actualDeparture;
   TravelMode mode;
+  StopStatus? actualStatus;
 
   static String _clock(int minutes) =>
       '${(minutes ~/ 60).toString().padLeft(2, '0')}:${(minutes % 60).toString().padLeft(2, '0')}';
@@ -347,11 +429,33 @@ class _StopDraft {
     if (name.text.trim().isEmpty) {
       throw const FormatException('Stop name required');
     }
+    StopActual? actual;
+    if (actualStatus != null) {
+      final dep = actualDeparture.text.trim().isEmpty
+          ? null
+          : _date(actualDeparture.text);
+      if (dep == null) {
+        throw const FormatException('Actual departure required when marked');
+      }
+      final arr = actualArrival.text.trim().isEmpty
+          ? null
+          : _date(actualArrival.text);
+      if (actualStatus == StopStatus.skipped && arr != null) {
+        throw const FormatException('Skipped stop has no arrival time');
+      }
+      if (actualStatus != StopStatus.skipped && arr == null) {
+        throw const FormatException(
+          'Arrival time required for completed/late stop',
+        );
+      }
+      actual = StopActual(status: actualStatus!, departure: dep, arrival: arr);
+    }
     return Stop(
       name: name.text.trim(),
       dwellMinutes: _minutes(dwell.text, 'Dwell', positive: true),
       roughCost: _minutes(cost.text, 'Rough cost'),
       notes: notes.text,
+      actual: actual,
       leg: Leg(mode: mode, minutes: _minutes(travel.text, 'Travel')),
       anchor: anchor.text.trim().isEmpty ? null : _date(anchor.text),
       opening: open == null && weekdays.isEmpty
@@ -375,6 +479,8 @@ class _StopDraft {
       opens,
       closes,
       closed,
+      actualArrival,
+      actualDeparture,
     ]) {
       controller.dispose();
     }
@@ -574,6 +680,43 @@ class _TripEditorState extends State<TripEditor> {
           _field('Opens (HH:mm; optional)', stop.opens),
           _field('Closes (HH:mm; optional)', stop.closes),
           _field('Closed weekdays (1–7; Monday=1)', stop.closed, hint: '6,7'),
+          const Text('Day-of actual (entered by you):'),
+          Wrap(
+            children: [
+              _button(
+                'Pending stop ${index + 1}',
+                () => setState(() {
+                  stop.actualStatus = null;
+                  stop.actualArrival.clear();
+                  stop.actualDeparture.clear();
+                }),
+              ),
+              for (final status in StopStatus.values)
+                _button(
+                  '${status.name} stop ${index + 1}',
+                  () => setState(() {
+                    stop.actualStatus = status;
+                    if (status == StopStatus.skipped) {
+                      stop.actualArrival.clear();
+                    }
+                  }),
+                ),
+            ],
+          ),
+          if (stop.actualStatus != null) ...[
+            Text('Status: ${stop.actualStatus!.name}'),
+            if (stop.actualStatus != StopStatus.skipped)
+              _field(
+                'Actual arrival (yyyy-MM-dd HH:mm)',
+                stop.actualArrival,
+                key: Key('actual-arrival-$index'),
+              ),
+            _field(
+              'Actual departure (yyyy-MM-dd HH:mm)',
+              stop.actualDeparture,
+              key: Key('actual-departure-$index'),
+            ),
+          ],
           const Text(
             'Opening hours are your notes, not live venue data. Recheck legs after changing stop order.',
           ),
