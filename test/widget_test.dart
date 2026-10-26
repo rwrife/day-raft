@@ -67,6 +67,31 @@ void main() {
     );
   });
 
+  testWidgets('timeline shows overrun and per-stop conflicts', (tester) async {
+    final store = TripStore(db);
+    await store.saveTrip(
+      'late',
+      Trip(
+        title: 'Rain day',
+        start: DateTime(2026, 10, 21, 9),
+        end: DateTime(2026, 10, 21, 10),
+        stops: [
+          Stop(
+            name: 'Show',
+            dwellMinutes: 90,
+            anchor: DateTime(2026, 10, 21, 9, 10),
+            opening: const OpeningNote(opensAt: 10 * 60, closesAt: 11 * 60),
+          ),
+        ],
+      ),
+    );
+    await tester.pumpWidget(MaterialApp(home: TripScreen(store: store)));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Overrun (40m late)'), findsOneWidget);
+    expect(find.textContaining('outsideOpeningHours'), findsOneWidget);
+    expect(find.byKey(const Key('timeline-stop-0')), findsOneWidget);
+  });
+
   testWidgets('invalid local date stays in editor without writing', (
     tester,
   ) async {

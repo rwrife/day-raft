@@ -156,6 +156,42 @@ void main() {
     );
   });
 
+  test('actuals persist across reopen and JSON export/import', () async {
+    final trip = Trip(
+      start: DateTime.utc(2026, 10, 24, 9),
+      end: DateTime.utc(2026, 10, 24, 12),
+      stops: [
+        Stop(
+          name: 'Stop',
+          dwellMinutes: 30,
+          actual: StopActual(
+            status: StopStatus.late,
+            arrival: DateTime.utc(2026, 10, 24, 9, 20),
+            departure: DateTime.utc(2026, 10, 24, 10),
+          ),
+        ),
+      ],
+    );
+    await store.saveTrip('day', trip);
+    final reopened = await TripStore.openAt(
+      databaseFactoryFfi,
+      '${tempDir.path}${Platform.pathSeparator}test.db',
+    );
+    final restored = (await reopened.snapshot()).trips['day']!;
+    expect(restored.stops.single.actual!.status, StopStatus.late);
+    expect(
+      restored.stops.single.actual!.arrival,
+      DateTime.utc(2026, 10, 24, 9, 20),
+    );
+    final backup = (await reopened.snapshot()).exportJson();
+    final parsed = TripSnapshot.parse(backup).trips['day']!;
+    expect(
+      parsed.stops.single.actual!.departure,
+      DateTime.utc(2026, 10, 24, 10),
+    );
+    await reopened.close();
+  });
+
   test('JSON backup roundtrips exact contents', () async {
     await store.saveTrip('t1', sampleTrip());
     await store.savePlace('p1', 'Harbor');
