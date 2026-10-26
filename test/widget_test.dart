@@ -68,8 +68,12 @@ void main() {
   });
 
   testWidgets('timeline shows overrun and per-stop conflicts', (tester) async {
-    await db.execute('CREATE TABLE trips (id TEXT PRIMARY KEY, payload TEXT NOT NULL)');
-    await db.execute('CREATE TABLE places (id TEXT PRIMARY KEY, name TEXT NOT NULL)');
+    await db.execute(
+      'CREATE TABLE trips (id TEXT PRIMARY KEY, payload TEXT NOT NULL)',
+    );
+    await db.execute(
+      'CREATE TABLE places (id TEXT PRIMARY KEY, name TEXT NOT NULL)',
+    );
     final store = TripStore(db);
     await store.saveTrip(
       'late',
