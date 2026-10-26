@@ -68,6 +68,8 @@ void main() {
   });
 
   testWidgets('timeline shows overrun and per-stop conflicts', (tester) async {
+    await db.execute('CREATE TABLE trips (id TEXT PRIMARY KEY, payload TEXT NOT NULL)');
+    await db.execute('CREATE TABLE places (id TEXT PRIMARY KEY, name TEXT NOT NULL)');
     final store = TripStore(db);
     await store.saveTrip(
       'late',
@@ -86,7 +88,8 @@ void main() {
       ),
     );
     await tester.pumpWidget(MaterialApp(home: TripScreen(store: store)));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump();
     expect(find.textContaining('Overrun (40m late)'), findsOneWidget);
     expect(find.textContaining('outsideOpeningHours'), findsOneWidget);
     expect(find.byKey(const Key('timeline-stop-0')), findsOneWidget);
