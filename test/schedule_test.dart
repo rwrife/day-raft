@@ -346,9 +346,9 @@ void main() {
       'lib/domain',
     ).listSync(recursive: true).whereType<File>()) {
       for (final line in file.readAsStringSync().split('\n')) {
-        final uri = RegExp(r'''^\s*import\s+['"]([^'"]+)['"]''')
-            .firstMatch(line)
-            ?.group(1);
+        final uri = RegExp(
+          r'''^\s*import\s+['"]([^'"]+)['"]''',
+        ).firstMatch(line)?.group(1);
         if (uri == null) continue;
         expect(uri, isNot(startsWith('package:flutter')), reason: file.path);
         expect(uri, isNot(startsWith('dart:ui')), reason: file.path);

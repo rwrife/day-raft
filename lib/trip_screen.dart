@@ -56,8 +56,9 @@ Widget _field(
 
 // No UTC conversion: user enters wall-clock times for this offline day.
 DateTime _date(String text) {
-  final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$')
-      .firstMatch(text.trim());
+  final match = RegExp(
+    r'^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$',
+  ).firstMatch(text.trim());
   if (match == null) throw const FormatException('Use yyyy-MM-dd HH:mm');
   final parts = [for (var i = 1; i <= 5; i++) int.parse(match.group(i)!)];
   final date = DateTime(parts[0], parts[1], parts[2], parts[3], parts[4]);
