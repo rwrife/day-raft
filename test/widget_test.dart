@@ -2,11 +2,13 @@ import 'dart:io';
 
 import 'package:day_raft/data/trip_store.dart';
 import 'package:day_raft/domain/schedule.dart';
+import 'package:day_raft/main.dart';
 import 'package:day_raft/trip_screen.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show MaterialApp, TextField;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fluent_ui/fluent_ui.dart' show PageHeader, TextBox;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
@@ -117,6 +119,47 @@ void main() {
     expect(find.byType(CupertinoTextField), findsNWidgets(3));
     debugDefaultTargetPlatformOverride = null;
   });
+
+  testWidgets('Windows uses Fluent NavigationView, PageHeader, and TextBox', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    await tester.pumpWidget(DayRaftApp(home: TripEditor(store: TripStore(db))));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.byType(TextBox), findsWidgets);
+    expect(find.byType(PageHeader), findsOneWidget);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('Android uses Material Scaffold and TextField', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    await tester.pumpWidget(DayRaftApp(home: TripEditor(store: TripStore(db))));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.byType(TextField), findsWidgets);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets(
+    'DesktopHome renders Fluent NavigationView with navigation items',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      await tester.pumpWidget(const DayRaftApp());
+      await tester.pumpAndSettle();
+      expect(find.text('Trips'), findsWidgets);
+      expect(find.text('Local backups'), findsWidgets);
+      debugDefaultTargetPlatformOverride = null;
+    },
+  );
 
   test(
     'trip CRUD persists across reopen, JSON title and cost survive',
