@@ -1,20 +1,15 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' as material;
+import 'package:fluent_ui/fluent_ui.dart' as fluent;
 
+import 'adaptive.dart';
+import 'data/backup_screen.dart';
 import 'trip_screen.dart';
 export 'trip_screen.dart' show TripScreen;
 
-void main() {
-  runApp(const DayRaftApp());
-}
+void main() => runApp(const DayRaftApp());
 
-/// Root of Day Raft.
-///
-/// UX strategy A: every screen renders through [AdaptiveShell], choosing the
-/// host platform's idiom: Cupertino on iOS, Material 3 on Android, and a
-/// compact desktop layout on Windows. Fluent widgets land with the release
-/// issue; until then, avoid using one phone look on every platform.
 class DayRaftApp extends StatelessWidget {
   const DayRaftApp({super.key, this.home});
   final Widget? home;
@@ -22,58 +17,75 @@ class DayRaftApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final root = home ?? const TripScreen();
-    if (defaultTargetPlatform == TargetPlatform.iOS ||
-        defaultTargetPlatform == TargetPlatform.macOS) {
-      return CupertinoApp(
+    if (isIOS || defaultTargetPlatform == TargetPlatform.macOS) {
+      return CupertinoApp(title: 'Day Raft', home: root);
+    }
+    if (isWindows) {
+      return fluent.FluentApp(
         title: 'Day Raft',
-        debugShowCheckedModeBanner: false,
-        home: root,
+        home: home ?? const DesktopHome(),
       );
     }
-    return MaterialApp(
+    return material.MaterialApp(
       title: 'Day Raft',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(useMaterial3: true),
+      theme: material.ThemeData(useMaterial3: true),
       home: root,
     );
   }
 }
 
+class DesktopHome extends StatefulWidget {
+  const DesktopHome({super.key});
+  @override
+  State<DesktopHome> createState() => _DesktopHomeState();
+}
+
+class _DesktopHomeState extends State<DesktopHome> {
+  int selected = 0;
+
+  @override
+  Widget build(BuildContext context) => fluent.NavigationView(
+    pane: fluent.NavigationPane(
+      selected: selected,
+      onChanged: (index) => setState(() => selected = index),
+      items: [
+        fluent.PaneItem(
+          icon: const Icon(fluent.FluentIcons.calendar),
+          title: const Text('Trips'),
+          body: const TripScreen(),
+        ),
+        fluent.PaneItem(
+          icon: const Icon(fluent.FluentIcons.save),
+          title: const Text('Local backups'),
+          body: const BackupScreen(),
+        ),
+      ],
+    ),
+  );
+}
+
 class AdaptiveShell extends StatelessWidget {
   const AdaptiveShell({super.key, required this.title, required this.body});
-
   final String title;
   final Widget body;
 
   @override
   Widget build(BuildContext context) {
-    final platform = defaultTargetPlatform;
-    if (platform == TargetPlatform.iOS || platform == TargetPlatform.macOS) {
+    if (isIOS) {
       return CupertinoPageScaffold(
         navigationBar: CupertinoNavigationBar(middle: Text(title)),
         child: SafeArea(child: body),
       );
     }
-    final desktop =
-        platform == TargetPlatform.windows || platform == TargetPlatform.linux;
-    // Desktop pointer input wants compact density; touch keeps the default.
-    final theme = Theme.of(
-      context,
-    ).copyWith(visualDensity: desktop ? VisualDensity.compact : null);
-    return Theme(
-      data: theme,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(title),
-          // Windows convention: leading actions, no up-button on the root page.
-          automaticallyImplyLeading: !desktop,
-        ),
-        body: SafeArea(
-          child: desktop
-              ? Padding(padding: const EdgeInsets.all(24), child: body)
-              : body,
-        ),
-      ),
+    if (isWindows) {
+      return fluent.ScaffoldPage(
+        header: fluent.PageHeader(title: Text(title)),
+        content: SafeArea(child: body),
+      );
+    }
+    return material.Scaffold(
+      appBar: material.AppBar(title: Text(title)),
+      body: SafeArea(child: body),
     );
   }
 }

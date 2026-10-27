@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../adaptive.dart';
 import '../main.dart' show AdaptiveShell;
 import 'backup_files.dart';
 import 'trip_store.dart';
@@ -46,45 +47,25 @@ class _BackupScreenState extends State<BackupScreen> {
       defaultTargetPlatform == TargetPlatform.iOS ||
       defaultTargetPlatform == TargetPlatform.android;
 
-  Future<bool?> _ask(String title, String details, {String yes = 'Continue'}) {
-    if (ios) {
-      return showCupertinoDialog<bool>(
-        context: context,
-        builder: (context) => CupertinoAlertDialog(
-          title: Text(title),
+  Future<bool?> _ask(String title, String details, {String yes = 'Continue'}) =>
+      showAdaptivePrompt<bool>(
+        context,
+        (context) => AdaptiveDialog(
+          title: title,
           content: Text(details),
           actions: [
-            CupertinoDialogAction(
+            AdaptiveButton(
+              label: 'Cancel',
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
             ),
-            CupertinoDialogAction(
-              isDestructiveAction: yes == 'Wipe' || yes == 'Replace',
+            AdaptiveButton(
+              label: yes,
+              destructive: yes == 'Wipe' || yes == 'Replace',
               onPressed: () => Navigator.pop(context, true),
-              child: Text(yes),
             ),
           ],
         ),
       );
-    }
-    return showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(details),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(yes),
-          ),
-        ],
-      ),
-    );
-  }
 
   Future<void> _run(Future<void> Function() operation) async {
     if (busy || store == null) return;
@@ -101,53 +82,28 @@ class _BackupScreenState extends State<BackupScreen> {
     }
   }
 
-  Future<bool?> _chooseImport(String details) {
-    if (ios) {
-      return showCupertinoDialog<bool>(
-        context: context,
-        builder: (context) => CupertinoAlertDialog(
-          title: const Text('Preview import'),
-          content: Text(details),
-          actions: [
-            CupertinoDialogAction(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            CupertinoDialogAction(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Merge'),
-            ),
-            CupertinoDialogAction(
-              isDestructiveAction: true,
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Replace…'),
-            ),
-          ],
+  Future<bool?> _chooseImport(String details) => showAdaptivePrompt<bool>(
+    context,
+    (context) => AdaptiveDialog(
+      title: 'Preview import',
+      content: Text(details),
+      actions: [
+        AdaptiveButton(
+          label: 'Cancel',
+          onPressed: () => Navigator.pop(context),
         ),
-      );
-    }
-    return showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Preview import'),
-        content: Text(details),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Merge'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Replace…'),
-          ),
-        ],
-      ),
-    );
-  }
+        AdaptiveButton(
+          label: 'Merge',
+          onPressed: () => Navigator.pop(context, true),
+        ),
+        AdaptiveButton(
+          label: 'Replace…',
+          destructive: true,
+          onPressed: () => Navigator.pop(context, false),
+        ),
+      ],
+    ),
+  );
 
   Future<void> _import() async {
     final incoming = await pickBackup();
@@ -172,15 +128,10 @@ class _BackupScreenState extends State<BackupScreen> {
     }
   }
 
-  Widget _button(String label, VoidCallback onPressed) => ios
-      ? CupertinoButton(
-          onPressed: busy || store == null ? null : onPressed,
-          child: Text(label),
-        )
-      : FilledButton(
-          onPressed: busy || store == null ? null : onPressed,
-          child: Text(label),
-        );
+  Widget _button(String label, VoidCallback onPressed) => AdaptiveButton(
+    label: label,
+    onPressed: busy || store == null ? null : onPressed,
+  );
 
   @override
   Widget build(BuildContext context) => AdaptiveShell(

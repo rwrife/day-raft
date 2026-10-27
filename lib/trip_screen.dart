@@ -1,7 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:fluent_ui/fluent_ui.dart' as fluent;
 
+import 'adaptive.dart';
 import 'data/backup_screen.dart';
 import 'data/trip_store.dart';
 import 'domain/schedule.dart';
@@ -11,11 +13,12 @@ bool get _ios => defaultTargetPlatform == TargetPlatform.iOS;
 
 Route<void> _page(Widget child) => _ios
     ? CupertinoPageRoute<void>(builder: (_) => child)
+    : isWindows
+    ? fluent.FluentPageRoute<void>(builder: (_) => child)
     : MaterialPageRoute<void>(builder: (_) => child);
 
-Widget _button(String label, VoidCallback? action, {Key? key}) => _ios
-    ? CupertinoButton(key: key, onPressed: action, child: Text(label))
-    : TextButton(key: key, onPressed: action, child: Text(label));
+Widget _button(String label, VoidCallback? action, {Key? key}) =>
+    AdaptiveButton(key: key, label: label, onPressed: action);
 
 Widget _field(
   String label,
@@ -25,32 +28,13 @@ Widget _field(
   TextInputType? keyboard,
   int maxLines = 1,
 }) {
-  final input = _ios
-      ? CupertinoTextField(
-          key: key,
-          controller: controller,
-          placeholder: hint,
-          keyboardType: keyboard,
-          maxLines: maxLines,
-          maxLength: 500,
-          padding: const EdgeInsets.all(12),
-        )
-      : TextField(
-          key: key,
-          controller: controller,
-          decoration: InputDecoration(labelText: label, hintText: hint),
-          keyboardType: keyboard,
-          maxLines: maxLines,
-          maxLength: 500,
-        );
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 5),
-    child: _ios
-        ? Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [Text(label), input],
-          )
-        : input,
+  return AdaptiveField(
+    inputKey: key,
+    label: label,
+    controller: controller,
+    hint: hint,
+    keyboard: keyboard,
+    maxLines: maxLines,
   );
 }
 
@@ -153,40 +137,23 @@ class _TripScreenState extends State<TripScreen> {
 
   Future<void> _delete(String id) async {
     if (busy) return;
-    final confirmed = _ios
-        ? await showCupertinoDialog<bool>(
-            context: context,
-            builder: (context) => CupertinoAlertDialog(
-              title: const Text('Delete trip?'),
-              actions: [
-                CupertinoDialogAction(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Cancel'),
-                ),
-                CupertinoDialogAction(
-                  isDestructiveAction: true,
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text('Delete'),
-                ),
-              ],
-            ),
-          )
-        : await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Delete trip?'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Cancel'),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text('Delete'),
-                ),
-              ],
-            ),
-          );
+    final confirmed = await showAdaptivePrompt<bool>(
+      context,
+      (context) => AdaptiveDialog(
+        title: 'Delete trip?',
+        actions: [
+          AdaptiveButton(
+            label: 'Cancel',
+            onPressed: () => Navigator.pop(context, false),
+          ),
+          AdaptiveButton(
+            label: 'Delete',
+            destructive: true,
+            onPressed: () => Navigator.pop(context, true),
+          ),
+        ],
+      ),
+    );
     if (confirmed != true || !mounted) return;
     setState(() => busy = true);
     try {
