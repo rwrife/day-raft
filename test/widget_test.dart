@@ -8,7 +8,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show MaterialApp, TextField;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fluent_ui/fluent_ui.dart' show PageHeader, TextBox;
+import 'package:fluent_ui/fluent_ui.dart' show CommandBar, PageHeader, TextBox;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
@@ -157,6 +157,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Trips'), findsWidgets);
       expect(find.text('Local backups'), findsWidgets);
+      expect(find.byType(CommandBar), findsOneWidget);
       debugDefaultTargetPlatformOverride = null;
     },
   );
