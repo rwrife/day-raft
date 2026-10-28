@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:fluent_ui/fluent_ui.dart' as fluent;
 
 import 'adaptive.dart';
@@ -166,10 +167,68 @@ class _TripScreenState extends State<TripScreen> {
     }
   }
 
+  Widget _desktopCommandBar() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: fluent.CommandBar(
+        primaryItems: [
+          fluent.CommandBarButton(
+            key: const Key('fluent-new-trip'),
+            icon: const Icon(fluent.FluentIcons.add),
+            label: const Text('New trip'),
+            tooltip: 'Create new day trip (Ctrl+N)',
+            onPressed: store == null || busy ? null : () => _edit(null, null),
+          ),
+          fluent.CommandBarButton(
+            key: const Key('fluent-refresh-trips'),
+            icon: const Icon(fluent.FluentIcons.refresh),
+            label: const Text('Refresh'),
+            tooltip: 'Reload trips (F5)',
+            onPressed: store == null || busy ? null : _refresh,
+          ),
+          fluent.CommandBarButton(
+            key: const Key('fluent-backups'),
+            icon: const Icon(fluent.FluentIcons.archive),
+            label: const Text('Backups'),
+            tooltip: 'Manage local JSON backups',
+            onPressed: () async {
+              await Navigator.push(context, _page(const BackupScreen()));
+              if (mounted && store != null) await _refresh();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tripCard(String id, Trip trip) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Semantics(
+      label: 'Trip ${trip.title.isEmpty ? 'Untitled trip' : trip.title}',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            trip.title.isEmpty ? 'Untitled trip' : trip.title,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          Text('${_stamp(trip.start)} · ${trip.stops.length} stops'),
+          _timeline(trip),
+          Wrap(
+            children: [
+              _button('Edit', () => _edit(id, trip), key: Key('edit-$id')),
+              _button('Delete', () => _delete(id)),
+            ],
+          ),
+          const Divider(),
+        ],
+      ),
+    ),
+  );
+
   @override
-  Widget build(BuildContext context) => AdaptiveShell(
-    title: 'Day Raft',
-    body: Center(
+  Widget build(BuildContext context) {
+    final content = Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 900),
         child: ListView(
@@ -178,20 +237,24 @@ class _TripScreenState extends State<TripScreen> {
             const Text(
               'Offline plans. Travel legs and opening hours are your estimates, not live data.',
             ),
-            Wrap(
-              spacing: 12,
-              children: [
-                _button(
-                  'New trip',
-                  store == null || busy ? null : () => _edit(null, null),
-                  key: const Key('new-trip'),
-                ),
-                _button('Local backups', () async {
-                  await Navigator.push(context, _page(const BackupScreen()));
-                  if (mounted && store != null) await _refresh();
-                }),
-              ],
-            ),
+            const SizedBox(height: 8),
+            if (isWindows)
+              _desktopCommandBar()
+            else
+              Wrap(
+                spacing: 12,
+                children: [
+                  _button(
+                    'New trip',
+                    store == null || busy ? null : () => _edit(null, null),
+                    key: const Key('new-trip'),
+                  ),
+                  _button('Local backups', () async {
+                    await Navigator.push(context, _page(const BackupScreen()));
+                    if (mounted && store != null) await _refresh();
+                  }),
+                ],
+              ),
             if (store == null && error == null)
               const Text('Opening local trips…'),
             if (error != null)
@@ -200,47 +263,29 @@ class _TripScreenState extends State<TripScreen> {
               const Text('No trips yet. Create one to plan your day.'),
             for (final entry
                 in snapshot?.trips.entries ?? <MapEntry<String, Trip>>[])
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Semantics(
-                  label:
-                      'Trip ${entry.value.title.isEmpty ? 'Untitled trip' : entry.value.title}',
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        entry.value.title.isEmpty
-                            ? 'Untitled trip'
-                            : entry.value.title,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        '${_stamp(entry.value.start)} · ${entry.value.stops.length} stops',
-                      ),
-                      _timeline(entry.value),
-                      Wrap(
-                        children: [
-                          _button(
-                            'Edit',
-                            () => _edit(entry.key, entry.value),
-                            key: Key('edit-${entry.key}'),
-                          ),
-                          _button('Delete', () => _delete(entry.key)),
-                        ],
-                      ),
-                      const Divider(),
-                    ],
-                  ),
-                ),
-              ),
+              _tripCard(entry.key, entry.value),
           ],
         ),
       ),
-    ),
-  );
+    );
+
+    if (!isWindows) return AdaptiveShell(title: 'Day Raft', body: content);
+
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyN, control: true): () {
+          if (store != null && !busy) _edit(null, null);
+        },
+        const SingleActivator(LogicalKeyboardKey.f5): () {
+          if (store != null && !busy) _refresh();
+        },
+      },
+      child: Focus(
+        autofocus: true,
+        child: AdaptiveShell(title: 'Day Raft', body: content),
+      ),
+    );
+  }
 
   static String _conflictLabel(Conflict conflict, bool isEstimated) {
     if (conflict.kind == ConflictKind.missedAnchor) {
