@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:day_raft/adaptive.dart';
 import 'package:day_raft/data/trip_store.dart';
 import 'package:day_raft/domain/schedule.dart';
 import 'package:day_raft/main.dart';
@@ -7,7 +8,9 @@ import 'package:day_raft/trip_screen.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show MaterialApp, TextField;
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fluent_ui/fluent_ui.dart' as fluent;
 import 'package:fluent_ui/fluent_ui.dart' show CommandBar, PageHeader, TextBox;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -161,6 +164,79 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     },
   );
+
+  testWidgets('trip editor exposes scaled controls to screen readers', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    tester.view.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.view.platformDispatcher.clearTextScaleFactorTestValue);
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    await tester.pumpWidget(
+      MaterialApp(home: TripEditor(store: TripStore(db))),
+    );
+    await tester.pump();
+    expect(find.byKey(const Key('trip-title')), findsOneWidget);
+    expect(find.bySemanticsLabel('Trip title'), findsWidgets);
+    expect(tester.takeException(), isNull);
+    semantics.dispose();
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('Windows editor Escape returns to prior page', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    await tester.pumpWidget(
+      fluent.FluentApp(
+        home: fluent.NavigationView(
+          content: Builder(
+            builder: (context) => fluent.Button(
+              child: const Text('Open editor'),
+              onPressed: () => Navigator.of(context).push(
+                fluent.FluentPageRoute<void>(
+                  builder: (_) => TripEditor(store: TripStore(db)),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open editor'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TripEditor), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.byType(TripEditor), findsNothing);
+    expect(tester.takeException(), isNull);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('adaptive buttons use host platform idiom', (tester) async {
+    for (final platform in [
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+      TargetPlatform.windows,
+    ]) {
+      debugDefaultTargetPlatformOverride = platform;
+      await tester.pumpWidget(
+        DayRaftApp(
+          home: const AdaptiveButton(label: 'Action', onPressed: null),
+        ),
+      );
+      await tester.pumpAndSettle();
+      if (platform == TargetPlatform.iOS) {
+        expect(find.byType(CupertinoButton), findsOneWidget);
+      } else if (platform == TargetPlatform.android) {
+        expect(find.byType(CupertinoButton), findsNothing);
+        expect(find.byType(TextField), findsNothing);
+      } else {
+        expect(find.byType(CupertinoButton), findsNothing);
+      }
+      expect(tester.takeException(), isNull);
+    }
+    debugDefaultTargetPlatformOverride = null;
+  });
 
   test(
     'trip CRUD persists across reopen, JSON title and cost survive',
