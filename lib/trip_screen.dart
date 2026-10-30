@@ -575,51 +575,63 @@ class _TripEditorState extends State<TripEditor> {
   }
 
   @override
-  Widget build(BuildContext context) => AdaptiveShell(
-    title: widget.trip == null ? 'New trip' : 'Edit trip',
-    body: Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 900),
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _field('Trip title', title, key: const Key('trip-title')),
-            _field(
-              'Start (yyyy-MM-dd HH:mm)',
-              start,
-              key: const Key('trip-start'),
-              hint: '2026-10-25 09:00',
-            ),
-            _field(
-              'End (yyyy-MM-dd HH:mm)',
-              end,
-              key: const Key('trip-end'),
-              hint: '2026-10-25 18:00',
-            ),
-            const Text(
-              'Local clock times. For overnight trips, enter next-day end date.',
-            ),
-            for (var i = 0; i < stops.length; i++) _stopFields(i),
-            _button(
-              'Add stop',
-              stops.length >= 1000
-                  ? null
-                  : () => setState(() => stops.add(_StopDraft())),
-              key: const Key('add-stop'),
-            ),
-            if (error != null)
-              Text('Error: $error', key: const Key('editor-error')),
-            Wrap(
+  Widget build(BuildContext context) => CallbackShortcuts(
+    bindings: isWindows
+        ? {
+            const SingleActivator(LogicalKeyboardKey.escape): () {
+              if (!saving) Navigator.pop(context);
+            },
+          }
+        : {},
+    child: Focus(
+      autofocus: isWindows,
+      child: AdaptiveShell(
+        title: widget.trip == null ? 'New trip' : 'Edit trip',
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 900),
+            child: ListView(
+              padding: const EdgeInsets.all(16),
               children: [
-                _button(
-                  'Save trip',
-                  saving ? null : _save,
-                  key: const Key('save-trip'),
+                _field('Trip title', title, key: const Key('trip-title')),
+                _field(
+                  'Start (yyyy-MM-dd HH:mm)',
+                  start,
+                  key: const Key('trip-start'),
+                  hint: '2026-10-25 09:00',
                 ),
-                _button('Cancel', () => Navigator.pop(context)),
+                _field(
+                  'End (yyyy-MM-dd HH:mm)',
+                  end,
+                  key: const Key('trip-end'),
+                  hint: '2026-10-25 18:00',
+                ),
+                const Text(
+                  'Local clock times. For overnight trips, enter next-day end date.',
+                ),
+                for (var i = 0; i < stops.length; i++) _stopFields(i),
+                _button(
+                  'Add stop',
+                  stops.length >= 1000
+                      ? null
+                      : () => setState(() => stops.add(_StopDraft())),
+                  key: const Key('add-stop'),
+                ),
+                if (error != null)
+                  Text('Error: $error', key: const Key('editor-error')),
+                Wrap(
+                  children: [
+                    _button(
+                      'Save trip',
+                      saving ? null : _save,
+                      key: const Key('save-trip'),
+                    ),
+                    _button('Cancel', () => Navigator.pop(context)),
+                  ],
+                ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     ),
