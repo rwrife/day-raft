@@ -9,6 +9,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show MaterialApp, TextField;
 import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fluent_ui/fluent_ui.dart' as fluent;
 import 'package:fluent_ui/fluent_ui.dart' show CommandBar, PageHeader, TextBox;
@@ -208,6 +209,75 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
     expect(find.byType(TripEditor), findsNothing);
+    expect(tester.takeException(), isNull);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('Windows trip menu works with right-click and keyboard', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    var edited = 0;
+    var deleted = 0;
+    await tester.pumpWidget(
+      DayRaftApp(
+        home: DesktopTripMenu(
+          id: 'one',
+          onEdit: () => edited++,
+          onDelete: () => deleted++,
+          child: const Text('Outing'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final menu = find.byKey(const Key('trip-menu-one'));
+    expect(menu, findsOneWidget);
+    final point = tester.getCenter(find.text('Outing'));
+    await tester.sendEventToBinding(
+      PointerAddedEvent(
+        pointer: 1,
+        kind: PointerDeviceKind.mouse,
+        position: point,
+      ),
+    );
+    await tester.sendEventToBinding(
+      PointerDownEvent(
+        pointer: 1,
+        kind: PointerDeviceKind.mouse,
+        position: point,
+        buttons: kSecondaryMouseButton,
+      ),
+    );
+    await tester.sendEventToBinding(
+      PointerUpEvent(
+        pointer: 1,
+        kind: PointerDeviceKind.mouse,
+        position: point,
+        buttons: kSecondaryMouseButton,
+      ),
+    );
+    await tester.sendEventToBinding(
+      PointerRemovedEvent(
+        pointer: 1,
+        kind: PointerDeviceKind.mouse,
+        position: point,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Edit trip'), findsOneWidget);
+    expect(find.text('Delete trip'), findsOneWidget);
+    await tester.tap(find.text('Edit trip'));
+    await tester.pumpAndSettle();
+    expect(edited, 1);
+    expect(deleted, 0);
+    await tester.tap(menu);
+    await tester.pumpAndSettle();
+    expect(find.text('Edit trip'), findsOneWidget);
+    expect(find.text('Delete trip'), findsOneWidget);
+    await tester.tap(find.text('Delete trip'));
+    await tester.pumpAndSettle();
+    expect(deleted, 1);
     expect(tester.takeException(), isNull);
     debugDefaultTargetPlatformOverride = null;
   });
