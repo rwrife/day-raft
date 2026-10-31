@@ -203,26 +203,35 @@ class _TripScreenState extends State<TripScreen> {
 
   Widget _tripCard(String id, Trip trip) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 8),
-    child: Semantics(
-      label: 'Trip ${trip.title.isEmpty ? 'Untitled trip' : trip.title}',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            trip.title.isEmpty ? 'Untitled trip' : trip.title,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          Text('${_stamp(trip.start)} · ${trip.stops.length} stops'),
-          _timeline(trip),
-          Wrap(
-            children: [
-              _button('Edit', () => _edit(id, trip), key: Key('edit-$id')),
-              _button('Delete', () => _delete(id)),
-            ],
-          ),
-          const Divider(),
-        ],
-      ),
+    child: isWindows
+        ? DesktopTripMenu(
+            id: id,
+            onEdit: () => _edit(id, trip),
+            onDelete: () => _delete(id),
+            child: _tripContent(id, trip),
+          )
+        : _tripContent(id, trip),
+  );
+
+  Widget _tripContent(String id, Trip trip) => Semantics(
+    label: 'Trip ${trip.title.isEmpty ? 'Untitled trip' : trip.title}',
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          trip.title.isEmpty ? 'Untitled trip' : trip.title,
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        Text('${_stamp(trip.start)} · ${trip.stops.length} stops'),
+        _timeline(trip),
+        Wrap(
+          children: [
+            _button('Edit', () => _edit(id, trip), key: Key('edit-$id')),
+            _button('Delete', () => _delete(id)),
+          ],
+        ),
+        const Divider(),
+      ],
     ),
   );
 
@@ -355,6 +364,88 @@ class _TripScreenState extends State<TripScreen> {
       ),
     );
   }
+}
+
+// Right-click and keyboard-accessible More actions share the same native menu.
+class DesktopTripMenu extends StatefulWidget {
+  const DesktopTripMenu({
+    super.key,
+    required this.id,
+    required this.onEdit,
+    required this.onDelete,
+    required this.child,
+  });
+
+  final String id;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final Widget child;
+
+  @override
+  State<DesktopTripMenu> createState() => _DesktopTripMenuState();
+}
+
+class _DesktopTripMenuState extends State<DesktopTripMenu> {
+  final controller = fluent.FlyoutController();
+  bool hovered = false;
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  void _showMenu([Offset? position]) {
+    controller.showFlyout<void>(
+      position: position,
+      builder: (_) => fluent.MenuFlyout(
+        items: [
+          fluent.MenuFlyoutItem(
+            text: const Text('Edit trip'),
+            onPressed: widget.onEdit,
+          ),
+          fluent.MenuFlyoutItem(
+            text: const Text('Delete trip'),
+            onPressed: widget.onDelete,
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => fluent.FlyoutTarget(
+    controller: controller,
+    child: MouseRegion(
+      onEnter: (_) => setState(() => hovered = true),
+      onExit: (_) => setState(() => hovered = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onSecondaryTapDown: (details) => _showMenu(details.globalPosition),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: hovered
+                ? fluent.FluentTheme.of(
+                    context,
+                  ).resources.subtleFillColorSecondary
+                : null,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              widget.child,
+              fluent.Button(
+                key: Key('trip-menu-${widget.id}'),
+                onPressed: _showMenu,
+                child: const Text('More trip actions'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _StopDraft {
