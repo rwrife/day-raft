@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:day_raft/adaptive.dart';
 import 'package:day_raft/main.dart';
 import 'package:flutter/cupertino.dart' show CupertinoButton;
@@ -51,10 +53,13 @@ void main() {
         expect(find.byType(Button), findsOneWidget);
         expect(find.byType(TextButton), findsNothing);
       }
-      await expectLater(
-        find.byType(AdaptiveShell),
-        matchesGoldenFile('goldens/adaptive_shell_${platform.name}.png'),
-      );
+      // Flutter font rasterization differs by host OS; Windows still checks widget idioms.
+      if (Platform.isLinux) {
+        await expectLater(
+          find.byType(AdaptiveShell),
+          matchesGoldenFile('goldens/adaptive_shell_${platform.name}.png'),
+        );
+      }
       debugDefaultTargetPlatformOverride = null;
       tester.view.resetPhysicalSize();
       tester.view.resetDevicePixelRatio();
