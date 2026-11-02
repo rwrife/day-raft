@@ -308,6 +308,29 @@ void main() {
     debugDefaultTargetPlatformOverride = null;
   });
 
+  testWidgets('Windows large text keeps editor screen-reader controls usable', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    tester.view.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.view.platformDispatcher.clearTextScaleFactorTestValue);
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(DayRaftApp(home: TripEditor(store: TripStore(db))));
+    await tester.pumpAndSettle();
+    expect(find.byType(TextBox), findsWidgets);
+    expect(find.bySemanticsLabel('Trip title'), findsWidgets);
+    await tester.ensureVisible(find.byKey(const Key('save-trip')));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    semantics.dispose();
+    debugDefaultTargetPlatformOverride = null;
+  });
+
   test(
     'trip CRUD persists across reopen, JSON title and cost survive',
     () async {
