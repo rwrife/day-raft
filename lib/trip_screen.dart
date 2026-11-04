@@ -320,10 +320,16 @@ class _TripScreenState extends State<TripScreen> {
       Verdict.tight => 'Tight (slack: ${slack}m)',
       Verdict.overrun => 'Overrun (${-slack}m late)',
     };
-    final color = switch (verdict) {
-      Verdict.onTrack => const Color(0xFF2E7D32),
-      Verdict.tight => const Color(0xFFE65100),
-      Verdict.overrun => const Color(0xFFC62828),
+    // ponytail: fixed light/dark palettes cover current opaque shells; derive
+    // colors from resolved surface if custom user themes are introduced.
+    final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+    final color = switch ((verdict, dark)) {
+      (Verdict.onTrack, false) => const Color(0xFF2E7D32),
+      (Verdict.tight, false) => const Color(0xFF9A3900),
+      (Verdict.overrun, false) => const Color(0xFFC62828),
+      (Verdict.onTrack, true) => const Color(0xFF81C784),
+      (Verdict.tight, true) => const Color(0xFFFFB74D),
+      (Verdict.overrun, true) => const Color(0xFFEF9A9A),
     };
     final conflicts = hasActuals
         ? tl.remaining.conflicts

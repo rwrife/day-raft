@@ -15,6 +15,15 @@ import 'package:fluent_ui/fluent_ui.dart' as fluent;
 import 'package:fluent_ui/fluent_ui.dart' show CommandBar, PageHeader, TextBox;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+// ponytail: fixed snapshot avoids real SQLite transactions in widget fake async;
+// integration tests cover database-backed trip rendering.
+class _FixedSnapshotStore extends TripStore {
+  _FixedSnapshotStore(super.db, this.value);
+  final TripSnapshot value;
+  @override
+  Future<TripSnapshot> snapshot() async => value;
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   sqfliteFfiInit();
@@ -304,6 +313,40 @@ void main() {
         expect(find.byType(CupertinoButton), findsNothing);
       }
       expect(tester.takeException(), isNull);
+    }
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('timeline verdict remains readable in light and dark themes', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    addTearDown(
+      tester.binding.platformDispatcher.clearPlatformBrightnessTestValue,
+    );
+    final trip = Trip(
+      title: 'Contrast check',
+      start: DateTime(2026, 10, 25, 9),
+      end: DateTime(2026, 10, 25, 10),
+      stops: const [Stop(name: 'Museum', dwellMinutes: 120)],
+    );
+    final store = _FixedSnapshotStore(db, TripSnapshot({'contrast': trip}, {}));
+    for (final (brightness, expected) in [
+      (Brightness.light, const Color(0xFFC62828)),
+      (Brightness.dark, const Color(0xFFEF9A9A)),
+    ]) {
+      tester.binding.platformDispatcher.platformBrightnessTestValue =
+          brightness;
+      await tester.pumpWidget(DayRaftApp(home: TripScreen(store: store)));
+      await tester.pumpAndSettle();
+      final verdict = tester.widget<Text>(
+        find.byKey(const Key('timeline-verdict')),
+      );
+      expect(verdict.data, contains('Overrun'));
+      expect(verdict.style?.color, expected);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
     }
     debugDefaultTargetPlatformOverride = null;
   });
