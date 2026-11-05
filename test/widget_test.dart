@@ -193,6 +193,54 @@ void main() {
     debugDefaultTargetPlatformOverride = null;
   });
 
+  testWidgets('Windows keyboard opens editor, traverses and exits', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final store = _FixedSnapshotStore(db, TripSnapshot({}, {}));
+    await tester.pumpWidget(DayRaftApp(home: TripScreen(store: store)));
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyN);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    expect(find.byType(TripEditor), findsOneWidget);
+    expect(find.byType(TextBox), findsWidgets);
+
+    final focused = <Key>{};
+    for (var i = 0; i < 12; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      for (final key in [
+        const Key('trip-title'),
+        const Key('trip-start'),
+        const Key('trip-end'),
+      ]) {
+        final field = find.descendant(
+          of: find.byKey(key),
+          matching: find.byType(EditableText),
+        );
+        if (tester.widget<EditableText>(field).focusNode.hasFocus) {
+          focused.add(key);
+        }
+      }
+    }
+    expect(focused, contains(const Key('trip-title')));
+    expect(focused, contains(const Key('trip-start')));
+    expect(focused, contains(const Key('trip-end')));
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.byType(TripEditor), findsNothing);
+    expect(tester.takeException(), isNull);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
   testWidgets('Windows editor Escape returns to prior page', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     await tester.pumpWidget(
