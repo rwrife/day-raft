@@ -377,7 +377,13 @@ void main() {
       title: 'Contrast check',
       start: DateTime(2026, 10, 25, 9),
       end: DateTime(2026, 10, 25, 10),
-      stops: const [Stop(name: 'Museum', dwellMinutes: 120)],
+      stops: const [
+        Stop(
+          name: 'Museum',
+          dwellMinutes: 120,
+          opening: OpeningNote(closedWeekdays: {DateTime.sunday}),
+        ),
+      ],
     );
     final store = _FixedSnapshotStore(db, TripSnapshot({'contrast': trip}, {}));
     for (final (brightness, expected) in [
@@ -393,6 +399,11 @@ void main() {
       );
       expect(verdict.data, contains('Overrun'));
       expect(verdict.style?.color, expected);
+      final conflicts = tester.widget<Text>(
+        find.byKey(const Key('timeline-conflicts-summary')),
+      );
+      expect(conflicts.data, contains('user-maintained opening notes'));
+      expect(conflicts.style?.color, expected);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     }

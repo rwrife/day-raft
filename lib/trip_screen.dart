@@ -360,7 +360,11 @@ class _TripScreenState extends State<TripScreen> {
           if (conflicts.isNotEmpty)
             Text(
               '${conflicts.length} conflict(s) · user-maintained opening notes and fixed anchors',
-              style: const TextStyle(color: Color(0xFFC62828)),
+              key: const Key('timeline-conflicts-summary'),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: dark ? const Color(0xFFEF9A9A) : const Color(0xFFC62828),
+              ),
             ),
           if (hasActuals)
             Text(
