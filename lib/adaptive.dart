@@ -27,7 +27,10 @@ class AdaptiveButton extends StatelessWidget {
               )
             : CupertinoButton(onPressed: onPressed, child: Text(label))
       : isWindows
-      ? fluent.Button(onPressed: onPressed, child: Text(label))
+      ? ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+          child: fluent.Button(onPressed: onPressed, child: Text(label)),
+        )
       : material.TextButton(onPressed: onPressed, child: Text(label));
 }
 
