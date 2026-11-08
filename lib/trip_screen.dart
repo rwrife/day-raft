@@ -170,33 +170,40 @@ class _TripScreenState extends State<TripScreen> {
   Widget _desktopCommandBar() {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: fluent.CommandBar(
-        primaryItems: [
-          fluent.CommandBarButton(
-            key: const Key('fluent-new-trip'),
-            icon: const Icon(fluent.FluentIcons.add),
-            label: const Text('New trip'),
-            tooltip: 'Create new day trip (Ctrl+N)',
-            onPressed: store == null || busy ? null : () => _edit(null, null),
+      child: fluent.ButtonTheme.merge(
+        data: const fluent.ButtonThemeData(
+          iconButtonStyle: fluent.ButtonStyle(
+            padding: WidgetStatePropertyAll(EdgeInsets.all(14)),
           ),
-          fluent.CommandBarButton(
-            key: const Key('fluent-refresh-trips'),
-            icon: const Icon(fluent.FluentIcons.refresh),
-            label: const Text('Refresh'),
-            tooltip: 'Reload trips (F5)',
-            onPressed: store == null || busy ? null : _refresh,
-          ),
-          fluent.CommandBarButton(
-            key: const Key('fluent-backups'),
-            icon: const Icon(fluent.FluentIcons.archive),
-            label: const Text('Backups'),
-            tooltip: 'Manage local JSON backups',
-            onPressed: () async {
-              await Navigator.push(context, _page(const BackupScreen()));
-              if (mounted && store != null) await _refresh();
-            },
-          ),
-        ],
+        ),
+        child: fluent.CommandBar(
+          primaryItems: [
+            fluent.CommandBarButton(
+              key: const Key('fluent-new-trip'),
+              icon: const Icon(fluent.FluentIcons.add),
+              label: const Text('New trip'),
+              tooltip: 'Create new day trip (Ctrl+N)',
+              onPressed: store == null || busy ? null : () => _edit(null, null),
+            ),
+            fluent.CommandBarButton(
+              key: const Key('fluent-refresh-trips'),
+              icon: const Icon(fluent.FluentIcons.refresh),
+              label: const Text('Refresh'),
+              tooltip: 'Reload trips (F5)',
+              onPressed: store == null || busy ? null : _refresh,
+            ),
+            fluent.CommandBarButton(
+              key: const Key('fluent-backups'),
+              icon: const Icon(fluent.FluentIcons.archive),
+              label: const Text('Backups'),
+              tooltip: 'Manage local JSON backups',
+              onPressed: () async {
+                await Navigator.push(context, _page(const BackupScreen()));
+                if (mounted && store != null) await _refresh();
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
