@@ -193,6 +193,38 @@ void main() {
     debugDefaultTargetPlatformOverride = null;
   });
 
+  testWidgets('Windows command bar controls have 44px hit targets', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    try {
+      final store = _FixedSnapshotStore(db, TripSnapshot({}, {}));
+      await tester.pumpWidget(DayRaftApp(home: TripScreen(store: store)));
+      await tester.pumpAndSettle();
+      for (final key in [
+        'fluent-new-trip',
+        'fluent-refresh-trips',
+        'fluent-backups',
+      ]) {
+        final target = find.byKey(Key(key));
+        expect(target, findsOneWidget);
+        final size = tester.getSize(target);
+        expect(size.width, greaterThanOrEqualTo(44), reason: key);
+        expect(size.height, greaterThanOrEqualTo(44), reason: key);
+      }
+      final bounds = tester.getRect(find.byKey(const Key('fluent-new-trip')));
+      await tester.tapAt(Offset(bounds.center.dx, bounds.top + 2));
+      await tester.pumpAndSettle();
+      expect(find.byType(TripEditor), findsOneWidget);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    }
+  });
+
   testWidgets('Windows keyboard opens editor, traverses and exits', (
     tester,
   ) async {
