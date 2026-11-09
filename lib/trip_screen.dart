@@ -452,10 +452,13 @@ class _DesktopTripMenuState extends State<DesktopTripMenu> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               widget.child,
-              fluent.Button(
-                key: Key('trip-menu-${widget.id}'),
-                onPressed: _showMenu,
-                child: const Text('More trip actions'),
+              ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                child: fluent.Button(
+                  key: Key('trip-menu-${widget.id}'),
+                  onPressed: _showMenu,
+                  child: const Text('More trip actions'),
+                ),
               ),
             ],
           ),

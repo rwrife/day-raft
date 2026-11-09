@@ -322,6 +322,15 @@ void main() {
     await tester.pumpAndSettle();
     final menu = find.byKey(const Key('trip-menu-one'));
     expect(menu, findsOneWidget);
+    final bounds = tester.getRect(menu);
+    expect(bounds.width, greaterThanOrEqualTo(44));
+    expect(bounds.height, greaterThanOrEqualTo(44));
+    await tester.tapAt(Offset(bounds.center.dx, bounds.top + 2));
+    await tester.pumpAndSettle();
+    expect(find.text('Edit trip'), findsOneWidget);
+    await tester.tap(find.text('Edit trip'));
+    await tester.pumpAndSettle();
+    expect(edited, 1);
     final point = tester.getCenter(find.text('Outing'));
     await tester.sendEventToBinding(
       PointerAddedEvent(
@@ -358,7 +367,7 @@ void main() {
     expect(find.text('Delete trip'), findsOneWidget);
     await tester.tap(find.text('Edit trip'));
     await tester.pumpAndSettle();
-    expect(edited, 1);
+    expect(edited, 2);
     expect(deleted, 0);
     await tester.tap(menu);
     await tester.pumpAndSettle();
