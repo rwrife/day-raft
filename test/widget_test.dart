@@ -474,6 +474,59 @@ void main() {
     debugDefaultTargetPlatformOverride = null;
   });
 
+  for (final platform in [
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+    TargetPlatform.windows,
+  ]) {
+    testWidgets(
+      '$platform editor stays accessible at AX scale and high contrast',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = platform;
+        tester.view.physicalSize = Size(
+          platform == TargetPlatform.windows ? 1200 : 390,
+          844,
+        );
+        tester.view.devicePixelRatio = 1;
+        tester.view.platformDispatcher.textScaleFactorTestValue = 3.3;
+        tester.view.platformDispatcher.accessibilityFeaturesTestValue =
+            const FakeAccessibilityFeatures(highContrast: true);
+        final semantics = tester.ensureSemantics();
+        try {
+          await tester.pumpWidget(
+            DayRaftApp(home: TripEditor(store: TripStore(db))),
+          );
+          await tester.pumpAndSettle();
+          final context = tester.element(find.byType(TripEditor));
+          expect(MediaQuery.highContrastOf(context), isTrue);
+          expect(MediaQuery.textScalerOf(context).scale(10), 33);
+          expect(find.bySemanticsLabel('Trip title'), findsWidgets);
+          await tester.scrollUntilVisible(
+            find.byKey(const Key('save-trip')),
+            200,
+            scrollable: find
+                .descendant(
+                  of: find.byType(TripEditor),
+                  matching: find.byType(Scrollable),
+                )
+                .first,
+          );
+          await tester.pumpAndSettle();
+          expect(find.byKey(const Key('save-trip')), findsOneWidget);
+          expect(find.bySemanticsLabel('Save trip'), findsWidgets);
+          expect(tester.takeException(), isNull);
+        } finally {
+          semantics.dispose();
+          debugDefaultTargetPlatformOverride = null;
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+          tester.view.platformDispatcher.clearTextScaleFactorTestValue();
+          tester.view.platformDispatcher.clearAccessibilityFeaturesTestValue();
+        }
+      },
+    );
+  }
+
   test(
     'trip CRUD persists across reopen, JSON title and cost survive',
     () async {
