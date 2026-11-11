@@ -97,7 +97,10 @@ class AdaptiveField extends StatelessWidget {
       child: isIOS || isWindows
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [Text(label), input],
+              children: [
+                Text(label),
+                Semantics(textField: true, label: label, child: input),
+              ],
             )
           : input,
     );

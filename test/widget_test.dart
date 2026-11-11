@@ -187,7 +187,14 @@ void main() {
     );
     await tester.pump();
     expect(find.byKey(const Key('trip-title')), findsOneWidget);
-    expect(find.bySemanticsLabel('Trip title'), findsWidgets);
+    expect(
+      find.semantics.byPredicate((node) {
+        final data = node.getSemanticsData();
+        return data.flagsCollection.isTextField &&
+            data.label.contains('Trip title');
+      }),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
     semantics.dispose();
     debugDefaultTargetPlatformOverride = null;
@@ -466,7 +473,14 @@ void main() {
     await tester.pumpWidget(DayRaftApp(home: TripEditor(store: TripStore(db))));
     await tester.pumpAndSettle();
     expect(find.byType(TextBox), findsWidgets);
-    expect(find.bySemanticsLabel('Trip title'), findsWidgets);
+    expect(
+      find.semantics.byPredicate((node) {
+        final data = node.getSemanticsData();
+        return data.flagsCollection.isTextField &&
+            data.label.contains('Trip title');
+      }),
+      findsOneWidget,
+    );
     await tester.ensureVisible(find.byKey(const Key('save-trip')));
     await tester.pump();
     expect(tester.takeException(), isNull);
@@ -500,7 +514,14 @@ void main() {
           final context = tester.element(find.byType(TripEditor));
           expect(MediaQuery.highContrastOf(context), isTrue);
           expect(MediaQuery.textScalerOf(context).scale(10), 33);
-          expect(find.bySemanticsLabel('Trip title'), findsWidgets);
+          expect(
+            find.semantics.byPredicate((node) {
+              final data = node.getSemanticsData();
+              return data.flagsCollection.isTextField &&
+                  data.label.contains('Trip title');
+            }),
+            findsOneWidget,
+          );
           await tester.scrollUntilVisible(
             find.byKey(const Key('save-trip')),
             200,
