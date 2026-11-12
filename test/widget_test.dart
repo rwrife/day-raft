@@ -376,7 +376,22 @@ void main() {
     await tester.pumpAndSettle();
     expect(edited, 2);
     expect(deleted, 0);
-    await tester.tap(menu);
+    // Navigate to the same More control without a mouse, then invoke its menu.
+    var menuFocused = false;
+    for (var i = 0; i < 8; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      if (Focus.of(tester.element(find.text('More trip actions'))).hasFocus) {
+        menuFocused = true;
+        break;
+      }
+    }
+    expect(
+      menuFocused,
+      isTrue,
+      reason: 'More actions must be reachable by Tab',
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
     expect(find.text('Edit trip'), findsOneWidget);
     expect(find.text('Delete trip'), findsOneWidget);
